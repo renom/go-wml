@@ -59,6 +59,73 @@ func (d *Data) Contains(key string) bool {
 	return ok
 }
 
+func (d *Data) Single() (string, interface{}, error) {
+	if len(*d) == 1 {
+		for k, v := range *d {
+			return k, v, nil
+		}
+	}
+	return "", nil, errors.New("The data isn't single-valued.")
+}
+
+func (d *Data) ToTag() (Tag, error) {
+	key, value, err := d.Single()
+	if err == nil {
+		if data, ok := value.(Data); ok {
+			return Tag{key, data}, nil
+		}
+	}
+	return Tag{}, errors.New("The data isn't a tag.")
+}
+
+func (d *Data) ReadData(path string) (Data, error) {
+	value, err := d.Read(path)
+	if err != nil {
+		return nil, err
+	}
+	if data, ok := value.(Data); ok {
+		return data, nil
+	} else {
+		return nil, errors.New("Incorrect type of the Data attribute.")
+	}
+}
+
+func (d *Data) ReadString(path string) (string, error) {
+	value, err := d.Read(path)
+	if err != nil {
+		return "", err
+	}
+	if data, ok := value.(string); ok {
+		return data, nil
+	} else {
+		return "", errors.New("Incorrect type of the Data attribute.")
+	}
+}
+
+// Read nested data using dot notation.
+func (d *Data) Read(path string) (interface{}, error) {
+	pathSlice := strings.Split(path, ".")
+
+	var data Data = *d
+	for _, v := range pathSlice[:len(pathSlice)-1] {
+		if data.Contains(v) {
+			switch data[v].(type) {
+			case Data:
+				data = data[v].(Data)
+			default:
+				return nil, errors.New("The path doesn't exist")
+			}
+		}
+	}
+
+	key := pathSlice[len(pathSlice)-1]
+	if data.Contains(key) {
+		return data[key], nil
+	} else {
+		return nil, errors.New("The path doesn't exist")
+	}
+}
+
 func (d *Data) Indent(nesting uint) string {
 	tabulation := strings.Repeat("\t", int(nesting))
 	var keys []string
